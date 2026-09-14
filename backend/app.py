@@ -2,16 +2,20 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, PlainTextResponse, Response
 
 from backend.api import LocalApiService, router
 from backend.config import Settings
 from backend.storage import Database
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None, frontend_dir: Path | None = None) -> FastAPI:
     configured = settings or Settings.from_env()
     database = Database(configured.database_path)
+    ui_root = (frontend_dir or Path(__file__).resolve().parents[1] / "frontend" / "dist").resolve()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -40,6 +44,26 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {"environment": current.environment, "host": current.host, "port": current.port}
 
     app.include_router(router)
+
+    @app.get("/", include_in_schema=False, response_model=None)
+    @app.get("/{frontend_path:path}", include_in_schema=False, response_model=None)
+    async def frontend(frontend_path: str = "") -> Response:
+        """Serve a pre-built SPA without exposing files outside its build directory."""
+        index = ui_root / "index.html"
+        if not index.is_file():
+            return PlainTextResponse("UI build not found. Run scripts/start.ps1 to build the local frontend.", status_code=503)
+        if frontend_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="API route not found")
+        candidate = (ui_root / frontend_path).resolve()
+        try:
+            candidate.relative_to(ui_root)
+        except ValueError as error:
+            raise HTTPException(status_code=404, detail="Not found") from error
+        if frontend_path and candidate.is_file():
+            return FileResponse(candidate, headers={"X-Content-Type-Options": "nosniff"})
+        if frontend_path and Path(frontend_path).suffix:
+            raise HTTPException(status_code=404, detail="Static asset not found")
+        return FileResponse(index, headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
     return app
 
 
