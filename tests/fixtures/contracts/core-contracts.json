@@ -1,0 +1,72 @@
+{
+  "schema_version": "1.0",
+  "synthetic": true,
+  "alert_cases": [
+    {
+      "name": "stock threshold is inclusive",
+      "rule": { "template": "A01", "minimum_shares": "10000", "minimum_notional_usd": "1000000" },
+      "event": { "event_type": "execution", "asset_type": "stock", "quantity": "10000", "price": "100" },
+      "expected": "trigger"
+    },
+    {
+      "name": "quote is never an A01 execution",
+      "rule": { "template": "A01", "minimum_shares": "10000", "minimum_notional_usd": "1000000" },
+      "event": { "event_type": "quote", "asset_type": "stock", "quantity": "50000", "price": "200" },
+      "expected": "ignore"
+    },
+    {
+      "name": "option threshold uses verified multiplier",
+      "rule": { "template": "A02", "minimum_contracts": "100", "minimum_premium_usd": "100000" },
+      "event": { "event_type": "execution", "asset_type": "option", "quantity": "250", "price": "5.20", "price_multiplier": "100", "multiplier_verified": true },
+      "expected": "trigger"
+    },
+    {
+      "name": "unknown multiplier blocks option premium",
+      "rule": { "template": "A02", "minimum_contracts": "100", "minimum_premium_usd": "100000" },
+      "event": { "event_type": "execution", "asset_type": "option", "quantity": "250", "price": "5.20", "price_multiplier": "100", "multiplier_verified": false },
+      "expected": "block_unknown_multiplier"
+    }
+  ],
+  "ocr_cases": [
+    {
+      "name": "low confidence quantity remains a draft",
+      "row": { "asset_type": "stock", "symbol": "NVDA", "raw_quantity": "1?0", "extracted_quantity": "150", "requires_review": ["quantity"] },
+      "expected_commit_eligible": false
+    },
+    {
+      "name": "reviewed required field is eligible",
+      "row": { "asset_type": "stock", "symbol": "NVDA", "raw_quantity": "1?0", "extracted_quantity": "150", "reviewed_quantity": "150", "requires_review": [] },
+      "expected_commit_eligible": true
+    },
+    {
+      "name": "partial import keeps unseen holdings",
+      "mode": "update_visible_rows",
+      "completeness": "partial",
+      "visible_instrument_ids": ["NVDA"],
+      "existing_instrument_ids": ["NVDA", "demo-put"],
+      "expected_retained_instrument_ids": ["demo-put"]
+    }
+  ],
+  "suggestion_cases": [
+    {
+      "name": "grounded candidate uses supplied IDs and deterministic amounts",
+      "model": { "ranked_candidate_ids": ["trim-50", "hold"], "supporting_evidence_ids": ["WR-1042"], "rationale": "Trim 50 shares; the deterministic after-exposure is $24,000." },
+      "expected": "accept"
+    },
+    {
+      "name": "invented candidate is rejected",
+      "model": { "ranked_candidate_ids": ["buy-20-calls"], "supporting_evidence_ids": ["WR-1042"], "rationale": "Add 20 calls." },
+      "expected": "reject_candidate"
+    },
+    {
+      "name": "invented evidence is rejected",
+      "model": { "ranked_candidate_ids": ["hold"], "supporting_evidence_ids": ["WR-9999"], "rationale": "Hold." },
+      "expected": "reject_evidence"
+    },
+    {
+      "name": "narrative number that disagrees with calculations is rejected",
+      "model": { "ranked_candidate_ids": ["trim-50"], "supporting_evidence_ids": ["WR-1042"], "rationale": "Trim 50 shares; after-exposure is $99,999." },
+      "expected": "reject_ungrounded_number"
+    }
+  ]
+}
