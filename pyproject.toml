@@ -1,0 +1,10 @@
+[project]
+name = "whale-rider"
+version = "0.1.0"
+description = "Local, read-only market-alert service"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+

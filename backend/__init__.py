@@ -1,0 +1,2 @@
+"""Whale Rider local service."""
+
