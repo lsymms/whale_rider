@@ -1,0 +1,56 @@
+{
+  "schema_version": "1.0",
+  "synthetic": true,
+  "import_id": "demo-import-01",
+  "account_id": "demo-account",
+  "expected_position_version": 12,
+  "status": "review_required",
+  "capture_time": "2026-09-14T14:30:00Z",
+  "mode": "update_visible_rows",
+  "completeness": "partial",
+  "cloud_disclosure_accepted": false,
+  "rows": [
+    {
+      "row_id": "row-1",
+      "asset_type": "stock",
+      "symbol": "NVDA",
+      "raw_quantity": "1?0",
+      "extracted_quantity": "150",
+      "reviewed_quantity": null,
+      "field_confidence": {
+        "quantity": "low"
+      },
+      "requires_review": [
+        "quantity"
+      ],
+      "evidence": {
+        "image_id": "synthetic-image",
+        "bbox_normalized": [
+          0.1,
+          0.2,
+          0.9,
+          0.35
+        ]
+      }
+    },
+    {
+      "row_id": "row-2",
+      "asset_type": "option",
+      "underlying": "NVDA",
+      "expiry": "2026-09-18",
+      "right": "call",
+      "strike": "155",
+      "quantity": "2",
+      "instrument_id": "demo-NVDA-20260918-C-155",
+      "price_multiplier": "100",
+      "metadata_status": "synthetic_verified",
+      "requires_review": []
+    }
+  ],
+  "commit_contract": {
+    "idempotency_key": "demo-import-01-commit",
+    "expected_position_version": 12,
+    "explicit_close_instrument_ids": [],
+    "reviewed_by_user": false
+  }
+}

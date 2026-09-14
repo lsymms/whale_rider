@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Whale Rider · Design preview</title>
+<link rel="stylesheet" href="styles.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+<aside class="sidebar">
+<a class="brand" href="#overview"><span class="brandmark">W</span><span>Whale Rider<small>FLOW & EXPOSURE</small></span></a>
+<div class="nav-label">WORKSPACE</div>
+<nav aria-label="Main navigation">
+<button class="nav active" data-page="overview">◫ <span>Overview</span></button>
+<button class="nav" data-page="rules">≋ <span>Alert rules</span><b id="rule-count">3</b></button>
+<button class="nav" data-page="positions">▤ <span>Positions</span></button>
+<button class="nav" data-page="suggestions">◇ <span>Suggestions</span></button>
+<button class="nav" data-page="history">◷ <span>History</span></button>
+<button class="nav" data-page="settings">⚙ <span>Settings</span></button>
+</nav>
+<div class="sidebar-bottom"><span class="dot"></span> LOCAL DESIGN PREVIEW<p>Synthetic data · resets on reload</p><a href="../README.md">Read the design ↗</a></div>
+</aside>
+<div class="workspace">
+<header><div><span class="account-icon">P</span> Personal workspace <span class="muted">/</span> <span class="muted">Demo account</span></div><div><span class="pill amber">DEMO · NO CONNECTIONS</span><span class="clock">14 Sep 2026 · 10:31 ET</span></div></header>
+<main>
+<section class="page" id="page-overview" aria-labelledby="overview-title">
+<div class="page-heading"><div><div class="eyebrow">YOUR MARKET WORKSPACE</div><h1 id="overview-title">See the trade.<br><span class="muted">Understand the exposure.</span></h1><p>Large prints, useful context, and a clear view of what you already hold.</p></div><button class="primary" id="simulate">+ Simulate a print</button></div>
+<div class="metrics">
+<article class="metric"><span>Monitored universe</span><strong>20 <small>stocks</small> <i>/</i> 6 <small>options</small></strong><p>Illustrative scope · options polled every 10s</p></article>
+<article class="metric"><span>Enabled rules</span><strong id="enabled-count">3</strong><p>Large prints · repeat activity · held names</p></article>
+<article class="metric"><span>NVDA delta exposure</span><strong id="delta-total">$31,500</strong><p>Illustrative Greeks · <span id="snapshot-label">snapshot v12</span></p></article>
+</div>
+<div class="overview-grid">
+<article class="panel"><div class="panel-heading"><div><h2>Flow that matters</h2><p>Reported executions in your monitored universe</p></div><button id="pause" class="subtle">Pause demo feed</button></div>
+<div class="filter-row"><span class="pill">ALL EVENTS</span><span class="muted">Held names first</span><span class="muted right">Newest first ↓</span></div>
+<div id="flow-list"></div>
+<div class="panel-footer"><span class="muted">Trade direction is an inference. Large does not mean bullish.</span></div>
+</article>
+<div class="rail">
+<article class="panel exposure"><div class="panel-heading"><h2>Your exposure</h2><span class="pill">DEMO</span></div><div class="large-value" id="exposure-percent">31.5%<small>NVDA delta / illustrative equity</small></div><div class="exposure-bar"><span id="exposure-fill"></span></div><div class="legend"><span><i class="dot"></i> NVDA delta</span><span>$100k demo equity</span></div><p>100 shares + 2 long calls.<br>Long calls add directional exposure.</p><button data-go="suggestions" class="full">Review alternatives →</button></article>
+<article class="panel"><div class="panel-heading"><h2>Monitoring status</h2></div><div class="status-row"><span>Stocks</span><b>Simulated stream</b></div><div class="status-row"><span>Options</span><b class="amber-text">Simulated polling</b></div><div class="status-row"><span>Telegram</span><b>Not connected</b></div><div class="status-row"><span>AI provider</span><b>Not configured</b></div></article>
+</div>
+</div>
+</section>
+<section class="page hidden" id="page-rules" aria-labelledby="rules-title">
+<div class="page-heading compact"><div><div class="eyebrow">MAKE SIGNALS YOUR OWN</div><h1 id="rules-title">Alert rules</h1><p>Define meaningful size, coverage, and when you want to hear about it.</p></div><button class="primary" id="new-rule">+ Create rule</button></div>
+<div class="notice">Preview behavior only. Enabling a rule here never sends a message.</div>
+<article class="panel"><div class="table-wrap"><table><thead><tr><th>Rule</th><th>Asset</th><th>Minimum amount</th><th>Cooldown</th><th>Status</th><th>Action</th></tr></thead><tbody id="rules-body"></tbody></table></div></article>
+<div class="two-grid"><article class="panel padded"><h2>Start with observed facts</h2><p>Stock notional = shares × execution price.<br>Option premium = contracts × price × verified multiplier.</p></article><article class="panel padded"><h2>Keep scope visible</h2><p>Options access uses the intended OPRA Non-display subscription. Streaming support remains a separate check.</p></article></div>
+</section>
+<section class="page hidden" id="page-positions" aria-labelledby="positions-title">
+<div class="page-heading compact"><div><div class="eyebrow">A TRUSTWORTHY POSITION BOOK</div><h1 id="positions-title">Positions</h1><p id="positions-subtitle">Demo account · reviewed snapshot v12 · illustrative prices</p></div><button class="primary" id="load-ocr">Review sample OCR</button></div>
+<article class="panel"><div class="table-wrap"><table><thead><tr><th>Instrument</th><th>Position</th><th>Demo price</th><th>Demo delta</th><th>Delta dollars</th><th>Source</th></tr></thead><tbody id="positions-body"></tbody></table></div></article>
+<div class="notice">Screenshots update this app's position book. Partial images leave unshown holdings unchanged.</div>
+<article class="panel hidden" id="ocr-review"><div class="panel-heading"><div><h2>Review extracted positions</h2><p>Sample extraction · confirm the account, quantity, and contract before committing</p></div><span class="pill amber">REVIEW REQUIRED</span></div>
+<div class="review-grid"><div><div class="fake-screenshot"><span class="screenshot-label">SYNTHETIC SCREENSHOT REPRESENTATION</span><h3>Positions <small>Personal · 10:30 ET</small></h3><div class="image-row"><b>NVDA</b><span class="uncertain">1?0 shares</span></div><div class="image-row"><b>NVDA 155 Call</b><span>2 contracts</span></div><div class="image-row"><span>Expiry</span><span>Sep 18, 2026</span></div><p>Crop edge makes the stock quantity ambiguous.</p></div><p class="muted">A real upload would show the original crop beside each extracted row.</p></div>
+<form id="ocr-form"><label for="ocr-shares">NVDA share quantity <span class="amber-text">· low confidence</span></label><input id="ocr-shares" type="number" step="1" min="0" max="100000" value="150" required><p class="field-help">Sample extraction read 150. Correct it to match the image/source.</p><label for="ocr-contract">Resolved option contract</label><input id="ocr-contract" value="NVDA · 2026-09-18 · 155 CALL · multiplier 100" readonly><div class="diff" id="ocr-diff"></div><label class="check"><input id="ocr-confirm" type="checkbox" required><span>I reviewed the demo rows and intended changes.</span></label><button type="submit" class="primary full">Commit demo snapshot</button></form>
+</div></article>
+</section>
+<section class="page hidden" id="page-suggestions" aria-labelledby="suggestions-title">
+<div class="page-heading compact"><div><div class="eyebrow">CONTEXT BEFORE ACTION</div><h1 id="suggestions-title">Review your alternatives</h1><p>Illustrative responses to a large NVDA print and your existing long exposure.</p></div><button class="primary" id="generate">Generate demo review</button></div>
+<div class="notice">Synthetic examples only. These cards demonstrate the design; no model, live quote, or trade execution is connected.</div>
+<div class="objective"><label for="objective">Review objective</label><select id="objective"><option>Reduce directional exposure</option><option>Explore downside protection</option><option>Review without adding risk</option></select><span class="pill" id="idea-state">NOT GENERATED</span></div>
+<div id="suggestion-content"><article class="panel empty"><span class="empty-icon">◇</span><h2>Start with what you hold</h2><p>Generate a sample comparison of waiting, trimming shares,<br>and adding a protective put.</p></article></div>
+</section>
+<section class="page hidden" id="page-history" aria-labelledby="history-title">
+<div class="page-heading compact"><div><div class="eyebrow">FOLLOW THE EVIDENCE</div><h1 id="history-title">Activity history</h1><p>Local interactions in this preview. Reloading resets this history.</p></div></div><article class="panel" id="history-list"></article>
+</section>
+<section class="page hidden" id="page-settings" aria-labelledby="settings-title">
+<div class="page-heading compact"><div><div class="eyebrow">YOUR HOST. YOUR CONTROLS.</div><h1 id="settings-title">Connections & settings</h1><p>Setup design using your existing Webull OpenAPI key.</p></div></div>
+<div class="two-grid">
+<article class="panel padded"><span class="pill amber">NOT CONNECTED</span><h2>Webull OpenAPI</h2><p>Use existing App Key + matching App Secret. Verify account access and subscriptions with read calls.</p><div class="setting-line"><b>Stocks</b><span>Entitlement check</span></div><div class="setting-line"><b>Options</b><span>OPRA Real-Time Non-display</span></div><p class="muted">The production setup stores credentials in a protected host store. This preview has no secret fields.</p></article>
+<article class="panel padded"><span class="pill">OUTBOUND MESSAGES</span><h2>Telegram destination</h2><p>Bot token, chat ID, optional topic, destination preview and an explicit test.</p><div class="setting-line"><b>Privacy default</b><span>Market facts only</span></div><div class="setting-line"><b>Group budget</b><span>18 messages / minute</span></div><p class="muted">No messages can be sent from this preview.</p></article>
+<article class="panel padded"><span class="pill">PROVIDER CHOICE</span><h2>AI & screenshot privacy</h2><p>Separate vision/explanation provider settings, budget, timeout and cloud-image disclosure.</p><div class="setting-line"><b>OCR</b><span>Always review before commit</span></div><div class="setting-line"><b>Suggestions</b><span>Validated calculations first</span></div></article>
+<article class="panel padded"><span class="pill">LOCAL HOST</span><h2>Runtime & storage</h2><p>Use the physically attached disk through its native host path for the live database. Keep design files in this repository.</p><div class="setting-line"><b>Browser</b><span>Loopback by default</span></div><div class="setting-line"><b>Backups</b><span>Encrypted and restore-tested</span></div></article>
+</div>
+</section>
+<footer>WHALE RIDER <span>Design v1.0 · Synthetic data throughout · Manual execution in the planned MVP</span></footer>
+</main>
+</div>
+<dialog id="rule-dialog"><form id="rule-form"><div class="dialog-heading"><h2>Create a demo rule</h2><button type="button" id="close-dialog" aria-label="Close rule editor">×</button></div><label for="rule-name">Rule name</label><input id="rule-name" maxlength="70" required placeholder="My large option prints"><label for="rule-asset">Asset</label><select id="rule-asset"><option>Stock</option><option>Option</option></select><label for="rule-min">Minimum notional / premium ($)</label><input id="rule-min" type="number" min="1" max="1000000000" value="100000" required><p class="field-help">Demo scope: NVDA. Cooldown: 60 seconds. Production rules also validate quantity, sessions, freshness and capability.</p><button class="primary full" type="submit">Save demo rule</button></form></dialog>
+<div class="toast hidden" id="toast" role="status" aria-live="polite"></div>
+</body></html>

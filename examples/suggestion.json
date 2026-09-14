@@ -1,0 +1,90 @@
+{
+  "schema_version": "1.0",
+  "synthetic": true,
+  "run_id": "demo-run-01",
+  "account_id": "demo-account",
+  "position_version": 12,
+  "policy_version": 1,
+  "created_at": "2026-09-14T14:31:20Z",
+  "expires_at": "2026-09-14T14:32:20Z",
+  "objective": "reduce_directional_exposure",
+  "status": "illustrative_not_actionable",
+  "evidence_ids": [
+    "WR-1042",
+    "snapshot-v12",
+    "demo-quote-01"
+  ],
+  "assumptions": {
+    "underlying_price_usd": "150",
+    "equity_usd": "100000",
+    "stock_shares": "100",
+    "long_call_contracts": "2",
+    "call_delta": "0.55",
+    "multiplier": "100"
+  },
+  "calculated": {
+    "delta_shares_before": "210",
+    "delta_dollars_before": "31500"
+  },
+  "candidates": [
+    {
+      "id": "hold",
+      "action": "hold",
+      "legs": [],
+      "delta_dollars_after": "31500",
+      "incremental_debit_usd": "0",
+      "rationale": "Wait for confirmation; print intent is unknown."
+    },
+    {
+      "id": "trim-50",
+      "action": "reduce",
+      "legs": [
+        {
+          "asset_type": "stock",
+          "symbol": "NVDA",
+          "side": "sell",
+          "quantity": "50"
+        }
+      ],
+      "delta_dollars_after": "24000",
+      "estimated_gross_proceeds_usd": "7500",
+      "risk_note": "Sale proceeds are not realized profit."
+    },
+    {
+      "id": "protect-1",
+      "action": "hedge",
+      "legs": [
+        {
+          "asset_type": "option",
+          "instrument_id": "demo-put",
+          "side": "buy",
+          "quantity": "1",
+          "assumed_delta": "-0.30",
+          "assumed_ask": "2.00",
+          "multiplier": "100"
+        }
+      ],
+      "delta_dollars_after": "27000",
+      "incremental_debit_usd": "200",
+      "incremental_max_premium_loss_before_costs_usd": "200",
+      "risk_note": "Does not specify total portfolio maximum loss."
+    }
+  ],
+  "invalidation_triggers": [
+    "position_version_changed",
+    "quote_stale",
+    "policy_changed",
+    "evidence_corrected",
+    "time_expired"
+  ],
+  "ai_contract": {
+    "allowed_candidate_ids": [
+      "hold",
+      "trim-50",
+      "protect-1"
+    ],
+    "may_change_quantities": false,
+    "may_call_tools": false,
+    "abstention_allowed": true
+  }
+}

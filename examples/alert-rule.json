@@ -1,0 +1,62 @@
+{
+  "schema_version": "1.0",
+  "synthetic": true,
+  "id": "rule-large-options",
+  "revision": 1,
+  "name": "Large option premium",
+  "template": "A02",
+  "state": "enabled",
+  "universe": {
+    "mode": "explicit_contracts",
+    "instrument_ids": [
+      "demo-NVDA-20260918-C-155"
+    ],
+    "coverage_mode": "polled",
+    "requested_cycle_seconds": 10
+  },
+  "filters": {
+    "asset_type": "option",
+    "sessions": [
+      "regular"
+    ],
+    "operator": "AND",
+    "conditions": [
+      {
+        "field": "quantity_contracts",
+        "operator": "gte",
+        "value": "100"
+      },
+      {
+        "field": "premium_usd",
+        "operator": "gte",
+        "value": "100000"
+      }
+    ]
+  },
+  "requirements": {
+    "verified_multiplier": true,
+    "max_observation_delay_seconds": 20,
+    "execution_time_quote_required": false
+  },
+  "notification": {
+    "destination_id": "demo-chat",
+    "cooldown_seconds": 60,
+    "cooldown_scope": "rule_instrument_session",
+    "escalation_multiple": "2",
+    "expires_after_seconds": 60
+  },
+  "example_event": {
+    "instrument_id": "demo-NVDA-20260918-C-155",
+    "event_type": "execution",
+    "quantity": "250",
+    "quantity_unit": "contracts",
+    "price": "5.20",
+    "price_multiplier": "100",
+    "premium_usd": "130000",
+    "side_inference": "unknown",
+    "event_time": "2026-09-14T14:31:08Z",
+    "received_time": "2026-09-14T14:31:16Z",
+    "identity_quality": "unverified",
+    "source_mode": "polled"
+  }
+}
