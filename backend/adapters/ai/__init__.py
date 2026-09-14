@@ -5,6 +5,9 @@ from .vision import (
     VisionOcrAdapter,
     VisionProvider,
 )
+from .explanations import ExplanationProvider, ExplanationRequest, ExplanationResult, StructuredExplanationAdapter
 
-__all__ = ["DraftImport", "ImageValidationError", "OcrSchemaError", "VisionOcrAdapter", "VisionProvider"]
-
+__all__ = [
+    "DraftImport", "ImageValidationError", "OcrSchemaError", "VisionOcrAdapter", "VisionProvider",
+    "ExplanationProvider", "ExplanationRequest", "ExplanationResult", "StructuredExplanationAdapter",
+]
