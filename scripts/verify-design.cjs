@@ -18,7 +18,7 @@ for(const file of walk(root)){
  }
  if(file.endsWith(".json")){jsonCount++;try{JSON.parse(fs.readFileSync(file,"utf8"));}catch(err){failures.push(rel+": "+err.message);}}
 }
-for(const file of ["prototype/app.js","scripts/serve-preview.cjs"]){try{new vm.Script(fs.readFileSync(path.join(root,file),"utf8"),{filename:file});}catch(err){failures.push(file+": "+err.message);}}
+for(const file of ["prototype/app.js","scripts/serve-preview.cjs","scripts/webull-auth.cjs"]){try{new vm.Script(fs.readFileSync(path.join(root,file),"utf8"),{filename:file});}catch(err){failures.push(file+": "+err.message);}}
 const html=fs.readFileSync(path.join(root,"prototype/index.html"),"utf8");
 const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);
 if(new Set(ids).size!==ids.length)failures.push("Prototype contains duplicate IDs");
