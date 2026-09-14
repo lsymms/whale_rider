@@ -1,0 +1,21 @@
+{
+  "schema_version": "ocr-positions-v1",
+  "rows": [
+    {
+      "symbol": "NVDA",
+      "asset_type": "stock",
+      "quantity": "100",
+      "average_price": "150.25",
+      "confidence": {"symbol": 0.99, "quantity": 0.97},
+      "bounding_box": {"x": 10, "y": 20, "width": 300, "height": 32}
+    },
+    {
+      "symbol": "NVDA",
+      "asset_type": "option",
+      "quantity": "-2",
+      "option": {"right": "call", "expiry": "2026-10-16", "strike": "200"},
+      "confidence": {"symbol": 0.95, "quantity": 0.91}
+    }
+  ],
+  "warnings": ["Account name was not extracted."]
+}
