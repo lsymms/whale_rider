@@ -87,3 +87,32 @@ export async function loadLocalApiStatus(fetcher: FetchLike = fetch, base = loca
     return { mode: "fallback", reason: error instanceof Error ? error.message : "Local API is unavailable." };
   }
 }
+
+export interface PositionRecord { instrument_id: string; underlying: string; asset_type: string; quantity: string }
+export interface PositionSnapshot { account_id: string; version: number; source: string; complete: boolean; positions: PositionRecord[] }
+export interface ExposureItem { underlying: string; known_delta_shares: string; gross_known_delta_shares: string; net_delta_dollars: string | null; gross_delta_dollars: string | null; is_complete: boolean; unknown_instrument_ids: string[] }
+export interface ExposureReport { snapshot_version: number; is_complete: boolean; by_underlying: ExposureItem[] }
+export interface ImportDraft { import_id: string; account_id: string; expected_position_version: number; status: "review_required" | "ready_for_commit"; row_count: number }
+export interface SuggestionCandidate { id: string; action: string; snapshot_version: number; instrument_id?: string; side?: string; quantity?: string }
+export interface SuggestionsResponse { status: string; reason?: string; snapshot_version: number; candidates: SuggestionCandidate[] }
+export interface RuleDryRun { mode: "dry_run"; code: string; triggered: boolean; notional: string | null; enrichment_only: boolean }
+
+async function requestJson<T>(path: string, method: "GET" | "POST" | "PATCH", body?: object, fetcher: FetchLike = fetch, base = localApiBase()): Promise<T> {
+  const response = await fetcher(`${base}${path}`, { method, credentials: "same-origin", headers: { Accept: "application/json", ...(body ? { "Content-Type": "application/json" } : {}) }, body: body ? JSON.stringify(body) : undefined });
+  const payload: unknown = await response.json();
+  if (!response.ok) {
+    const message = payload && typeof payload === "object" && "detail" in payload ? JSON.stringify((payload as { detail: unknown }).detail) : `HTTP ${response.status}`;
+    throw new Error(message);
+  }
+  return payload as T;
+}
+
+export const localApi = {
+  simulateRule: (body: object) => requestJson<RuleDryRun>("/rules/simulate", "POST", body),
+  createImport: (body: object) => requestJson<ImportDraft>("/imports", "POST", body),
+  updateImport: (id: string, body: object) => requestJson<ImportDraft>(`/imports/${encodeURIComponent(id)}/rows`, "PATCH", body),
+  commitImport: (id: string) => requestJson<PositionSnapshot>(`/imports/${encodeURIComponent(id)}/commit`, "POST", {}),
+  positions: (accountId: string) => requestJson<PositionSnapshot>(`/positions/${encodeURIComponent(accountId)}`, "GET"),
+  exposure: (accountId: string) => requestJson<ExposureReport>(`/positions/${encodeURIComponent(accountId)}/exposure`, "GET"),
+  suggestions: (accountId: string) => requestJson<SuggestionsResponse>("/suggestions", "POST", { account_id: accountId }),
+};

@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from backend.domain.alerts.engine import AlertEngine, AlertRule, MarketEvent, RuleTemplate
 from backend.domain.positions import VersionConflict
+from backend.storage import RuleConflict, RuleNotFound, RuleStore
 
 from .service import LocalApiService, decimal_text, parse_datetime, required_text, utc_now
 
@@ -21,6 +22,61 @@ def service(request: Request) -> LocalApiService:
 
 def failure(error: Exception) -> HTTPException:
     return HTTPException(status_code=422, detail={"code": "validation_error", "message": str(error)})
+
+
+def rules(request: Request) -> RuleStore:
+    return RuleStore(request.app.state.database)
+
+
+def rule_view(value: object) -> dict[str, object]:
+    return {"rule_id": value.rule_id, "revision": value.revision, "state": value.state, "paused_until": value.paused_until.isoformat() if value.paused_until else None, "rule": dict(value.payload)}
+
+
+@router.get("/rules")
+async def list_rules(request: Request) -> list[dict[str, object]]:
+    return [rule_view(value) for value in rules(request).list()]
+
+
+@router.post("/rules", status_code=201)
+async def create_rule(payload: dict[str, object], request: Request) -> dict[str, object]:
+    try:
+        rule_id = required_text(payload, "rule_id")
+        return rule_view(rules(request).create(rule_id, payload))
+    except (ValueError, RuleConflict) as error:
+        raise failure(error) from error
+
+
+@router.patch("/rules/{rule_id}")
+async def revise_rule(rule_id: str, payload: dict[str, object], request: Request) -> dict[str, object]:
+    try:
+        match = request.headers.get("if-match")
+        if match is None:
+            raise ValueError("If-Match revision header is required")
+        return rule_view(rules(request).revise(rule_id, int(match), payload))
+    except RuleNotFound as error:
+        raise HTTPException(status_code=404, detail={"code": "not_found", "message": "rule not found"}) from error
+    except (ValueError, RuleConflict) as error:
+        status = 409 if isinstance(error, RuleConflict) else 422
+        raise HTTPException(status_code=status, detail={"code": "revision_conflict" if status == 409 else "validation_error", "message": str(error)}) from error
+
+
+@router.post("/rules/{rule_id}/pause")
+async def pause_rule(rule_id: str, payload: dict[str, object], request: Request) -> dict[str, object]:
+    try:
+        until = parse_datetime(payload["until"], utc_now()) if payload.get("until") is not None else None
+        return rule_view(rules(request).pause(rule_id, until))
+    except RuleNotFound as error:
+        raise HTTPException(status_code=404, detail={"code": "not_found", "message": "rule not found"}) from error
+    except (ValueError, RuleConflict) as error:
+        raise failure(error) from error
+
+
+@router.post("/rules/{rule_id}/archive")
+async def archive_rule(rule_id: str, request: Request) -> dict[str, object]:
+    try:
+        return rule_view(rules(request).archive(rule_id))
+    except RuleNotFound as error:
+        raise HTTPException(status_code=404, detail={"code": "not_found", "message": "rule not found"}) from error
 
 
 @router.get("/capabilities")
