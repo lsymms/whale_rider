@@ -9,7 +9,7 @@ from backend.workers.capability_report import CapabilityReportWorkflow, sanitize
 def probe(calls: list[str]) -> CapabilityProbe:
     def transport(request: object) -> HttpResponse:
         calls.append(request.path)
-        if request.path == "/trading/accounts/list":
+        if request.path == "/openapi/account/list":
             return HttpResponse(200, {"account": {"id": "private-account", "cash": "12345"}})
         return HttpResponse(403, {"code": "MARKET_DATA_NOT_SUBSCRIBED", "detail": "private provider text"})
 
@@ -28,7 +28,7 @@ def test_default_workflow_only_runs_read_probe_and_never_uses_telegram() -> None
     telegram = TelegramAdapter(lambda *_: sent.append("sent") or "message-id", test_destination_id="test-chat", test_delivery_enabled=True, live_delivery_enabled=False)
     result = CapabilityReportWorkflow(probe(calls), telegram, test_destination_id="test-chat").run()
     assert calls == [
-        "/trading/accounts/list",
+            "/openapi/account/list",
         "/market-data/stocks/snapshots/list?symbols=AAPL&category=US_STOCK&extend_hour_required=false&overnight_required=false",
         "/market-data/options/snapshots/list?symbols=AAPL&category=US_OPTION",
     ]
