@@ -93,6 +93,28 @@ async def probe_capabilities(request: Request) -> dict[str, object]:
         raise failure(error) from error
 
 
+@router.get("/ingestion/status")
+async def ingestion_status(request: Request) -> dict[str, object]:
+    return service(request).ingestion_status()
+
+
+@router.post("/ingestion/start")
+async def start_ingestion(payload: dict[str, object], request: Request) -> dict[str, object]:
+    try:
+        symbols = payload.get("stock_symbols", [])
+        contracts = payload.get("option_contracts", [])
+        if not isinstance(symbols, list) or not all(isinstance(item, str) for item in symbols) or not isinstance(contracts, list) or not all(isinstance(item, dict) for item in contracts):
+            raise ValueError("stock_symbols and option_contracts must be lists")
+        return service(request).start_ingestion(symbols, contracts)
+    except ValueError as error:
+        raise failure(error) from error
+
+
+@router.post("/ingestion/stop")
+async def stop_ingestion(request: Request) -> dict[str, object]:
+    return service(request).stop_ingestion()
+
+
 @router.post("/rules/simulate")
 async def simulate_rule(payload: dict[str, object]) -> dict[str, object]:
     try:

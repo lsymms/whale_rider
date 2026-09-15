@@ -9,6 +9,8 @@ from uuid import uuid4
 from backend.domain.positions import ImportRow, ImportSource, Position, PositionSnapshot, VersionConflict, reconcile_import
 from backend.domain.risk import calculate_exposure
 from backend.workers.capabilities import CapabilityProbeRunner
+from backend.workers.ingestion import OptionContract
+from backend.workers.ingestion_lifecycle import IngestionLifecycle
 
 
 def utc_now() -> datetime:
@@ -29,11 +31,12 @@ class ImportDraft:
 class LocalApiService:
     """A side-effect-free facade: no Webull, AI, or Telegram calls are made here."""
 
-    def __init__(self, capability_runner: CapabilityProbeRunner | None = None) -> None:
+    def __init__(self, capability_runner: CapabilityProbeRunner | None = None, ingestion: IngestionLifecycle | None = None) -> None:
         self._snapshots: dict[str, PositionSnapshot] = {}
         self._drafts: dict[str, ImportDraft] = {}
         self._capability_runner = capability_runner or CapabilityProbeRunner()
         self._capability_report: dict[str, object] | None = None
+        self._ingestion = ingestion or IngestionLifecycle()
 
     def capabilities(self) -> dict[str, object]:
         if self._capability_report is not None:
@@ -51,6 +54,16 @@ class LocalApiService:
     def refresh_capabilities(self) -> dict[str, object]:
         self._capability_report = self._capability_runner.run()
         return self._capability_report
+
+    def ingestion_status(self) -> dict[str, object]:
+        return self._ingestion.status().view()
+
+    def start_ingestion(self, stock_symbols: list[str], option_contracts: list[dict[str, object]]) -> dict[str, object]:
+        contracts = [OptionContract(required_text(value, "instrument_id"), required_text(value, "underlying")) for value in option_contracts]
+        return self._ingestion.start(stock_symbols, contracts).view()
+
+    def stop_ingestion(self) -> dict[str, object]:
+        return self._ingestion.stop().view()
 
     def current_snapshot(self, account_id: str) -> PositionSnapshot:
         try:
