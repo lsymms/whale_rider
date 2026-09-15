@@ -11,9 +11,14 @@ from fastapi.responses import FileResponse, PlainTextResponse, Response
 from backend.api import LocalApiService, router
 from backend.config import Settings
 from backend.storage import Database
+from backend.workers.ingestion_lifecycle import IngestionLifecycle, IngestionOperations
 
 
-def create_app(settings: Settings | None = None, frontend_dir: Path | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    frontend_dir: Path | None = None,
+    ingestion_operations: IngestionOperations | None = None,
+) -> FastAPI:
     configured = settings or Settings.from_env()
     database = Database(configured.database_path)
     configured_ui = os.environ.get("APP_FRONTEND_DIR")
@@ -24,7 +29,9 @@ def create_app(settings: Settings | None = None, frontend_dir: Path | None = Non
         database.migrate()
         app.state.database = database
         app.state.settings = configured
-        app.state.local_api = LocalApiService()
+        # No production transport is constructed here. The host may inject a
+        # read-only operation set for an explicit operator start request.
+        app.state.local_api = LocalApiService(ingestion=IngestionLifecycle(ingestion_operations))
         yield
 
     app = FastAPI(title="Whale Rider", version="0.1.0", lifespan=lifespan)
