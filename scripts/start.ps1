@@ -16,6 +16,7 @@ if (-not (Test-Path -LiteralPath $python)) {
 
 $localRoot = Join-Path $env:LOCALAPPDATA "WhaleRider"
 $dependencyDir = Join-Path $localRoot "python-deps"
+$frontendMirror = Join-Path $localRoot "frontend"
 if (-not $SkipDependencyInstall -and -not (Test-Path -LiteralPath (Join-Path $dependencyDir "fastapi"))) {
     New-Item -ItemType Directory -Force -Path $dependencyDir | Out-Null
     & $python -m pip install --disable-pip-version-check --target $dependencyDir -r (Join-Path $root "requirements.txt")
@@ -28,14 +29,18 @@ if (-not (Test-Path -LiteralPath (Join-Path $frontend "package.json"))) {
 if (-not $SkipUiBuild) {
     $npm = Get-Command npm.cmd -ErrorAction SilentlyContinue
     if ($null -eq $npm) { throw "npm.cmd was not found. Install Node.js 20+ to build the local UI." }
+    if (Test-Path -LiteralPath $frontendMirror) { Remove-Item -LiteralPath $frontendMirror -Recurse -Force }
+    New-Item -ItemType Directory -Force -Path $frontendMirror | Out-Null
+    & robocopy.exe $frontend $frontendMirror /E /XD node_modules dist /NFL /NDL /NJH /NJS
+    if ($LASTEXITCODE -gt 7) { throw "Frontend mirror failed with robocopy exit code $LASTEXITCODE." }
     if (-not $SkipDependencyInstall) {
-        & $npm.Source ci --prefix $frontend --no-audit --no-fund
+        & $npm.Source ci --prefix $frontendMirror --no-audit --no-fund
         if ($LASTEXITCODE -ne 0) { throw "Frontend dependency installation failed." }
     }
-    & $npm.Source run build --prefix $frontend
+    & $npm.Source run build --prefix $frontendMirror
     if ($LASTEXITCODE -ne 0) { throw "Frontend build failed." }
 }
-if (-not (Test-Path -LiteralPath (Join-Path $frontend "dist\index.html"))) {
+if (-not (Test-Path -LiteralPath (Join-Path $frontendMirror "dist\index.html"))) {
     throw "Frontend build output is missing. Run without -SkipUiBuild."
 }
 
@@ -43,6 +48,7 @@ if ([string]::IsNullOrWhiteSpace($RuntimeDir)) { $RuntimeDir = $localRoot }
 $env:APP_HOST = "127.0.0.1"
 $env:APP_PORT = "$Port"
 $env:APP_RUNTIME_DIR = $RuntimeDir
+$env:APP_FRONTEND_DIR = Join-Path $frontendMirror "dist"
 $env:PYTHONPATH = "$root;$dependencyDir" + $(if ($env:PYTHONPATH) { ";$env:PYTHONPATH" } else { "" })
 
 & $python -m uvicorn backend.app:app --host 127.0.0.1 --port $Port
