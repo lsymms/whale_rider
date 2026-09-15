@@ -98,6 +98,7 @@ export interface SuggestionsResponse { status: string; reason?: string; snapshot
 export interface RuleDryRun { mode: "dry_run"; code: string; triggered: boolean; notional: string | null; enrichment_only: boolean }
 export interface ProbeCapability { state: "verified" | "unavailable" | "unknown"; code: string | null; httpStatus: number | null }
 export interface CapabilityProbeReport { source: "operator_probe" | "local_fallback"; capabilities: Record<string, ProbeCapability> }
+export interface IngestionStatus { state: "running" | "stopped" | "unknown"; stockSymbolCount: number; optionContractCount: number; startedAt: string | null; stoppedAt: string | null }
 
 async function requestJson<T>(path: string, method: "GET" | "POST" | "PATCH", body?: object, fetcher: FetchLike = fetch, base = localApiBase()): Promise<T> {
   const response = await fetcher(`${base}${path}`, { method, credentials: "same-origin", headers: { Accept: "application/json", ...(body ? { "Content-Type": "application/json" } : {}) }, body: body ? JSON.stringify(body) : undefined });
@@ -118,6 +119,9 @@ export const localApi = {
   exposure: (accountId: string) => requestJson<ExposureReport>(`/positions/${encodeURIComponent(accountId)}/exposure`, "GET"),
   suggestions: (accountId: string) => requestJson<SuggestionsResponse>("/suggestions", "POST", { account_id: accountId }),
   probeCapabilities: (fetcher: FetchLike = fetch, base = localApiBase()) => probeCapabilities(fetcher, base),
+  ingestionStatus: (fetcher: FetchLike = fetch, base = localApiBase()) => ingestionStatus(fetcher, base),
+  startIngestion: (stockSymbols: string[], fetcher: FetchLike = fetch, base = localApiBase()) => ingestionAction("/ingestion/start", { stock_symbols: stockSymbols, option_contracts: [] }, fetcher, base),
+  stopIngestion: (fetcher: FetchLike = fetch, base = localApiBase()) => ingestionAction("/ingestion/stop", undefined, fetcher, base),
 };
 
 function safeCapability(value: unknown): ProbeCapability {
@@ -144,4 +148,24 @@ export async function probeCapabilities(fetcher: FetchLike = fetch, base = local
   const capabilities: Record<string, ProbeCapability> = {};
   for (const key of ["authentication", "account_read", "stock_snapshot", "option_snapshot"]) capabilities[key] = safeCapability(raw[key]);
   return { source: (body as { source?: unknown }).source === "operator_probe" ? "operator_probe" : "local_fallback", capabilities };
+}
+
+function safeTimestamp(value: unknown): string | null { return typeof value === "string" && /^\d{4}-\d{2}-\d{2}T/.test(value) && value.length <= 40 ? value : null; }
+function safeIngestionStatus(value: unknown): IngestionStatus {
+  if (!value || typeof value !== "object") throw new Error("Ingestion returned an invalid status.");
+  const raw = value as Record<string, unknown>;
+  const count = (item: unknown) => Array.isArray(item) && item.length <= 10_000 ? item.length : 0;
+  return { state: raw.state === "running" || raw.state === "stopped" ? raw.state : "unknown", stockSymbolCount: count(raw.stock_symbols), optionContractCount: count(raw.option_contracts), startedAt: safeTimestamp(raw.started_at), stoppedAt: safeTimestamp(raw.stopped_at) };
+}
+async function ingestionAction(path: string, body: object | undefined, fetcher: FetchLike, base: string): Promise<IngestionStatus> {
+  let response: Response;
+  try { response = await fetcher(`${base}${path}`, { method: "POST", credentials: "same-origin", headers: { Accept: "application/json", ...(body ? { "Content-Type": "application/json" } : {}) }, body: body ? JSON.stringify(body) : undefined }); } catch { throw new Error("Ingestion control is unavailable."); }
+  if (!response.ok) throw new Error(`Ingestion control returned HTTP ${response.status}.`);
+  try { return safeIngestionStatus(await response.json()); } catch (error) { if (error instanceof Error) throw error; throw new Error("Ingestion returned an invalid status."); }
+}
+export async function ingestionStatus(fetcher: FetchLike = fetch, base = localApiBase()): Promise<IngestionStatus> {
+  let response: Response;
+  try { response = await fetcher(`${base}/ingestion/status`, { method: "GET", credentials: "same-origin", headers: { Accept: "application/json" } }); } catch { throw new Error("Ingestion status is unavailable."); }
+  if (!response.ok) throw new Error(`Ingestion status returned HTTP ${response.status}.`);
+  try { return safeIngestionStatus(await response.json()); } catch (error) { if (error instanceof Error) throw error; throw new Error("Ingestion returned an invalid status."); }
 }

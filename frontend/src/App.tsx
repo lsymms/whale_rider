@@ -6,10 +6,12 @@ import {
   type CapabilityProbeReport,
   type ExposureReport,
   type ImportDraft,
+  type IngestionStatus,
   type PositionSnapshot,
   type SuggestionsResponse,
 } from "./api";
 import { capabilityRows } from "./capabilityView";
+import { ingestionRows } from "./ingestionView";
 import { mockDashboard, type ConnectionStatus, type FlowEvent } from "./mock";
 
 type Page = "Overview" | "Alert rules" | "Positions" | "Suggestions" | "History" | "Settings";
@@ -250,6 +252,9 @@ function History({ items }: { items: string[] }) {
 function Settings() {
   const [running, setRunning] = useState(false);
   const [probe, setProbe] = useState<CapabilityProbeReport | null>(null);
+  const [ingestion, setIngestion] = useState<IngestionStatus | null>(null);
+  const [ingestionBusy, setIngestionBusy] = useState(false);
+  const [symbols, setSymbols] = useState("NVDA");
   const [message, setMessage] = useState<Notice>(null);
 
   async function runProbe() {
@@ -264,6 +269,23 @@ function Settings() {
     }
   }
 
+  async function refreshIngestion() {
+    setIngestionBusy(true);
+    try { setIngestion(await localApi.ingestionStatus()); }
+    catch (error) { setMessage({ tone: "bad", text: errorText(error) }); }
+    finally { setIngestionBusy(false); }
+  }
+
+  async function setIngestionRunning(start: boolean) {
+    setIngestionBusy(true);
+    try {
+      const requested = symbols.split(",").map((value) => value.trim().toUpperCase()).filter(Boolean);
+      setIngestion(start ? await localApi.startIngestion(requested) : await localApi.stopIngestion());
+      setMessage({ tone: "good", text: start ? "Ingestion start was requested for the displayed stock scope." : "Ingestion stop was requested." });
+    } catch (error) { setMessage({ tone: "bad", text: errorText(error) }); }
+    finally { setIngestionBusy(false); }
+  }
+
   return (
     <section>
       <div className="page-heading compact"><div><p className="eyebrow">LOCAL CONTROLS</p><h1>Settings &amp; health</h1><p className="lede">Run a read-only capability check for fresh Webull stock, option, and account access states.</p></div><button className="primary" disabled={running} onClick={() => void runProbe()}>{running ? "Probing" : "Run capability probe"}</button></div>
@@ -271,6 +293,12 @@ function Settings() {
       <article className="card">
         <div className="card-header"><div><h2>Webull access</h2><p>Operator-triggered and read-only. Secrets, account values, and raw provider errors are never displayed.</p></div><Badge tone={probe?.source === "operator_probe" ? "good" : "warn"}>{probe?.source === "operator_probe" ? "PROBED" : "NOT PROBED"}</Badge></div>
         {capabilityRows(probe).map((row) => <div className="health-row" key={row.label}><div><strong>{row.label}</strong><span>{row.detail}</span></div><Badge tone={row.state === "verified" ? "good" : row.state === "unavailable" ? "bad" : "warn"}>{row.state}</Badge></div>)}
+      </article>
+      <article className="card padded-card">
+        <div className="card-header"><div><h2>Market ingestion lifecycle</h2><p>Explicit controls only. The UI shows lifecycle and scope counts, never raw provider payloads.</p></div><Badge tone={ingestion?.state === "running" ? "good" : ingestion?.state === "stopped" ? "warn" : "neutral"}>{ingestion?.state ?? "unknown"}</Badge></div>
+        <label className="field-label" htmlFor="ingestion-symbols">Stock symbols (comma separated)</label><input id="ingestion-symbols" className="text-input" value={symbols} onChange={(event) => setSymbols(event.target.value)} disabled={ingestionBusy || ingestion?.state === "running"} />
+        <div className="action-row"><button className="quiet" disabled={ingestionBusy} onClick={() => void refreshIngestion()}>Refresh status</button>{ingestion?.state === "running" ? <button className="primary" disabled={ingestionBusy} onClick={() => void setIngestionRunning(false)}>Stop ingestion</button> : <button className="primary" disabled={ingestionBusy} onClick={() => void setIngestionRunning(true)}>Start ingestion</button>}</div>
+        {ingestionRows(ingestion).map((row) => <div className="health-row" key={row.label}><div><strong>{row.label}</strong><span>{row.detail}</span></div></div>)}
       </article>
       <article className="card padded-card"><h2>Manual trading policy</h2><p>Whale Rider does not submit, preview, cancel, or modify broker orders.</p></article>
     </section>
