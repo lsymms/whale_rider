@@ -40,6 +40,8 @@ Open [prototype/index.html](prototype/index.html) in a browser. The self-contain
 
 After setting `WEBULL_ENV`, `WEBULL_APP_KEY`, and `WEBULL_APP_SECRET` in the ignored `.env`, use `node scripts/webull-auth.cjs --dry-run` to see whether a token would be requested. Run `node scripts/webull-auth.cjs` to reuse an accepted token or create and save a replacement only when the value is blank or Webull returns `INVALID_TOKEN` from its read-only account-list API. The helper never prints a token and does not place or preview orders.
 
+To exercise the live, read-only account, stock, and option snapshot checks after enabling market-data subscriptions, run `powershell -ExecutionPolicy Bypass -File scripts/probe-webull.ps1 -OptionSymbol AAPL260918C00200000` with a currently listed option contract. The command prints only the redacted capability report; it never calls an order endpoint. Omitting `-OptionSymbol` checks stock access but uses `AAPL` only as an option-endpoint reachability probe.
+
 A production token starts as pending: complete the prompt in **Webull app → Menu → Messages → OpenAPI Notifications → Check Now**, then enter the SMS code within five minutes. Webull documents this lifecycle and the requirement to reuse active tokens in its [token guide](https://developer.webull.com/apis/docs/authentication/token/).
 
 No production credentials, screenshots, account data, backend, or live API connection are included. This is a local Git repository; remote hosting is optional.

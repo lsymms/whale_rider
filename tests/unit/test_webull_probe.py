@@ -33,11 +33,11 @@ def test_signed_account_request_uses_only_allowed_headers() -> None:
         now=lambda: datetime(2026, 9, 14, 12, 0, tzinfo=UTC),
         nonce=lambda: "a" * 32,
     )
-    assert client.get("/trading/accounts/list").status == 200
+    assert client.get("/openapi/account/list").status == 200
     request = captured[0]
     assert request.method == "GET"
-    assert request.path == "/trading/accounts/list"
-    assert request.headers["x-signature"] == "geLOH6fEeef1/PvUUikxav4MTPc="
+    assert request.path == "/openapi/account/list"
+    assert request.headers["x-signature"] == "jVOCwERwOdC8I1yui1B21vxZcew="
     assert "app-secret" not in request.headers.values()
     with pytest.raises(ValueError):
         client.get("/trading/orders/place")
@@ -54,14 +54,14 @@ def test_probe_distinguishes_data_entitlement_and_redacts_payloads() -> None:
 
     def transport(request: HttpRequest) -> HttpResponse:
         paths.append(request.path)
-        if request.path == "/trading/accounts/list":
+        if request.path == "/openapi/account/list":
             return HttpResponse(200, fixture("account-ok.json"))
         return HttpResponse(403, fixture("market-not-subscribed.json"))
 
     report = CapabilityProbe(WebullClient(credentials(), transport=transport), now=lambda: datetime(2026, 9, 14, 12, 0, tzinfo=UTC)).run()
     body = report.redacted_dict()
     assert paths == [
-        "/trading/accounts/list",
+        "/openapi/account/list",
         "/market-data/stocks/snapshots/list?symbols=AAPL&category=US_STOCK&extend_hour_required=false&overnight_required=false",
         "/market-data/options/snapshots/list?symbols=AAPL&category=US_OPTION",
     ]
@@ -80,7 +80,7 @@ def test_invalid_token_stops_data_calls() -> None:
     report = CapabilityProbe(
         WebullClient(credentials(), transport=lambda request: calls.append(request.path) or HttpResponse(401, fixture("invalid-token.json")))
     ).run().redacted_dict()
-    assert calls == ["/trading/accounts/list"]
+    assert calls == ["/openapi/account/list"]
     assert report["capabilities"]["account_read"]["code"] == "INVALID_TOKEN"
     assert report["capabilities"]["authentication"]["state"] == "unknown"
     assert report["capabilities"]["access_token"]["state"] == "unavailable"

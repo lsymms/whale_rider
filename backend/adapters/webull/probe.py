@@ -121,7 +121,7 @@ class WebullClient:
 
     def get(self, path: str) -> HttpResponse:
         if path.split("?", 1)[0] not in {
-            "/trading/accounts/list",
+            "/openapi/account/list",
             "/market-data/stocks/snapshots/list",
             "/market-data/options/snapshots/list",
         }:
@@ -138,8 +138,11 @@ class WebullClient:
             "x-signature-version": "1.0",
             "x-timestamp": timestamp,
         }
-        parameter_string = "&".join(f"{key}={signing_headers[key]}" for key in sorted(signing_headers))
-        signing_input = urllib.parse.quote(f"{path}&{parameter_string}", safe="~()*!.'-_")
+        parsed = urllib.parse.urlsplit(path)
+        query = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
+        all_params = {**signing_headers, **dict(query)}
+        parameter_string = "&".join(f"{key}={all_params[key]}" for key in sorted(all_params))
+        signing_input = urllib.parse.quote(f"{parsed.path}&{parameter_string}", safe="~()*!.'-_")
         signature = base64.b64encode(hmac.new(f"{self.credentials.app_secret}&".encode("utf-8"), signing_input.encode("utf-8"), hashlib.sha1).digest()).decode("ascii")
         return HttpRequest(
             method="GET",
@@ -200,8 +203,8 @@ class CapabilityProbe:
         self.client = client
         self._now = now or (lambda: datetime.now(UTC))
 
-    def run(self) -> ProbeReport:
-        account = self._request("/trading/accounts/list")
+    def run(self, option_symbol: str = "AAPL") -> ProbeReport:
+        account = self._request("/openapi/account/list")
         capabilities: dict[str, Capability] = {
             "account_read": account,
             "authentication": self._authentication_state(account),
@@ -218,7 +221,7 @@ class CapabilityProbe:
                 "/market-data/stocks/snapshots/list?symbols=AAPL&category=US_STOCK&extend_hour_required=false&overnight_required=false"
             )
             capabilities["option_snapshot"] = self._request(
-                "/market-data/options/snapshots/list?symbols=AAPL&category=US_OPTION"
+                f"/market-data/options/snapshots/list?symbols={urllib.parse.quote(option_symbol, safe='')}&category=US_OPTION"
             )
         return ProbeReport(
             environment=self.client.credentials.environment,
