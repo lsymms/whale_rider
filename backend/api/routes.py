@@ -84,6 +84,15 @@ async def capabilities(request: Request) -> dict[str, object]:
     return service(request).capabilities()
 
 
+@router.post("/capabilities/probe")
+async def probe_capabilities(request: Request) -> dict[str, object]:
+    """Explicit read-only operator action; never invoked by startup or GET status."""
+    try:
+        return service(request).refresh_capabilities()
+    except ValueError as error:
+        raise failure(error) from error
+
+
 @router.post("/rules/simulate")
 async def simulate_rule(payload: dict[str, object]) -> dict[str, object]:
     try:

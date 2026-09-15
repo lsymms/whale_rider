@@ -1,6 +1,6 @@
 # MVP release report
 
-**Report date:** September 14, 2026.  
+**Report date:** September 15, 2026.
 **Status:** local engineering MVP; not approved for unattended or live-trading operation.
 
 ## Implemented and testable locally
@@ -8,10 +8,10 @@
 | Area | Present behavior | Limits |
 | --- | --- | --- |
 | Local service and UI | Loopback FastAPI service serves the built React dashboard and local REST routes. | No local authentication, background service, backup/restore, or production deployment evidence yet. |
-| Alert rules | Decimal A01â€“A04 evaluation, replay journal, reliable-ID dedupe, corrections/gaps, and dry-run API. | No authenticated live stream/poller feeding the journal; alerts are not connected to a durable database/outbox route. |
-| Webull access | Token helper and allowlisted read-only capability probe with redacted evidence. | Current stock/options probes showed market-data subscription unavailable; no cadence or OPRA coverage verification. |
-| Telegram | Durable local JSON outbox state model, leases/retries, and an adapter that separates TEST from live delivery. | There is no scheduled worker or configured production route in the service. Live alert delivery remains disabled by default. |
-| Positions and exposure | Versioned manual/OCR-style drafts, review block, partial-import preservation, deterministic delta exposure, and deterministic candidate suggestions. | State is currently in-memory through the API facade. OCR and account import have no persisted production workflow. |
+| Alert rules | Decimal A01â€“A04 evaluation, replay journal, reliable-ID dedupe, corrections/gaps, persistent rule revisions, SQLite outbox enqueueing, and dry-run API. | The live ingestion worker is not scheduled/supervised as a local service yet; alert history is not exposed in the UI. |
+| Webull access | A production read-only capability probe completed authenticated account, stock snapshot, and option snapshot checks on September 15. The probe is allowlisted and emits only redacted status/evidence metadata. | Endpoint reachability does not prove real-time OPRA rights, tick semantics, complete universe coverage, or observed cadence. Those remain activation gates. |
+| Telegram | SQLite outbox leases/retries plus a TEST-versus-live guarded adapter and offline fake-transport delivery coverage. | There is no configured/scheduled production delivery route in the running service. Live alert delivery remains disabled until an operator enables it deliberately. |
+| Positions and exposure | Versioned manual/OCR-style drafts, review block, partial-import preservation, deterministic delta exposure, and deterministic candidate suggestions. | API-facade position drafts remain in-memory; account refresh/import persistence and UI history are incomplete. |
 | AI | OpenRouter adapters, OCR normalization, deterministic candidate policy/sizing, and explanation validation are represented in code/tests. | No held-out OCR/AI evaluation set, cost controls, or production model run evidence is included in this release. |
 
 No brokerage order, preview, cancel, account-write, or automatic trade execution path is implemented by this MVP.
@@ -29,16 +29,19 @@ The runner installs Python packages in `%LOCALAPPDATA%\WhaleRider\regression\pyt
 ## Evidence recorded in this change
 
 - Static source compilation and focused fake-adapter/domain tests passed while implementing each component.
-- The full regression runner is supplied but has not been recorded as a clean end-to-end execution in this report. Its result should be captured before any local operator acceptance.
+- The production Webull probe was a read-only endpoint check. Its redacted result establishes that the stock and option snapshot requests completed; it did not ingest a live event, send Telegram, or submit a brokerage order.
+- The full regression runner is supplied but its clean output should be retained before any local operator acceptance.
 - The previous mapped-workspace virtual environment was unsuitable for dependable dependency execution: pytest was absent and package/import commands stalled. The new host-local runner addresses that environment issue.
 
 ## Required before an operator release
 
 1. Run the full regression command and retain the output.
-2. Verify Webull stock entitlement and OPRA real-time non-display access with measured field coverage/cadence using the redacted capability workflow.
-3. Run one deliberately configured Telegram TEST from the local service and verify delivery timeline/retry behavior using fakes for rate/error cases.
-4. Replace in-memory API state and JSON notification storage with migrations, a single-writer durable store, session/CSRF/origin protections, retention, backup, and restore tests.
-5. Complete representative held-out OCR and AI evaluation sets, including incomplete positions, stale quotes, prompt injection, unsupported strategies, and policy/version invalidation.
-6. Observe at least five active sessions with visible feed gaps, latency, alert noise, option coverage, and no unintended live delivery.
+2. Measure Webull stock and OPRA real-time entitlement, event fields, reconnect behavior, option scope coverage, and p50/p95 cadence. The verified snapshot probe does not satisfy these measurements.
+3. Add a supervised live-worker schedule and service lifecycle that starts/restarts ingestion and delivery, surfaces health/gaps, and does not create duplicate routes.
+4. Add UI alert history, delivery status, and coverage/freshness views, then exercise them with browser recovery tests.
+5. Run one deliberately configured Telegram TEST from the local service and verify delivery timeline/retry behavior using fakes for rate/error cases.
+6. Replace in-memory API state with a single-writer durable store, then add session/CSRF/origin protections, retention, backup, and restore tests.
+7. Complete representative held-out OCR and AI evaluation sets, including incomplete positions, stale quotes, prompt injection, unsupported strategies, and policy/version invalidation.
+8. Observe at least five active sessions with visible feed gaps, latency, alert noise, option coverage, and no unintended live delivery.
 
 The implementation plan's G0â€“G6 acceptance gates remain the release authority. Passing the current local regression suite demonstrates deterministic behavior against fakes and fixtures; it does not demonstrate live market-data completeness or a trading edge.

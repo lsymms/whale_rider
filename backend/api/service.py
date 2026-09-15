@@ -8,6 +8,7 @@ from uuid import uuid4
 
 from backend.domain.positions import ImportRow, ImportSource, Position, PositionSnapshot, VersionConflict, reconcile_import
 from backend.domain.risk import calculate_exposure
+from backend.workers.capabilities import CapabilityProbeRunner
 
 
 def utc_now() -> datetime:
@@ -28,11 +29,15 @@ class ImportDraft:
 class LocalApiService:
     """A side-effect-free facade: no Webull, AI, or Telegram calls are made here."""
 
-    def __init__(self) -> None:
+    def __init__(self, capability_runner: CapabilityProbeRunner | None = None) -> None:
         self._snapshots: dict[str, PositionSnapshot] = {}
         self._drafts: dict[str, ImportDraft] = {}
+        self._capability_runner = capability_runner or CapabilityProbeRunner()
+        self._capability_report: dict[str, object] | None = None
 
     def capabilities(self) -> dict[str, object]:
+        if self._capability_report is not None:
+            return self._capability_report
         return {
             "generated_at": utc_now().isoformat(),
             "source": "local_fallback",
@@ -42,6 +47,10 @@ class LocalApiService:
                 "option_snapshot": {"state": "unknown"},
             },
         }
+
+    def refresh_capabilities(self) -> dict[str, object]:
+        self._capability_report = self._capability_runner.run()
+        return self._capability_report
 
     def current_snapshot(self, account_id: str) -> PositionSnapshot:
         try:
