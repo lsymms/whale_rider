@@ -1,0 +1,11 @@
+"use strict";
+const {execFileSync}=require("node:child_process"),path=require("node:path");
+const root=path.resolve(__dirname,"../..");
+const script=path.join(root,"scripts","check-webull-entitlements.ps1");
+const fixture=path.join(root,"tests","fixtures","webull","entitlement-verified.json");
+const output=execFileSync("powershell.exe",["-NoProfile","-ExecutionPolicy","Bypass","-File",script,"-ReportPath",fixture],{encoding:"utf8"});
+const report=JSON.parse(output);
+if(report.environment!=="production"||report.nasdaq_basic_or_totalview!=="snapshot_verified"||report.opra_realtime_nondisplay!=="snapshot_verified")throw new Error("Entitlement summary did not preserve verified snapshot states");
+if(output.includes("must-not-emit")||output.includes("private_account_id"))throw new Error("Entitlement summary leaked a private report field");
+if(!Array.isArray(report.next_required_measurements)||report.next_required_measurements.length<3)throw new Error("Entitlement summary omitted activation measurements");
+console.log("PASS: read-only entitlement summary is redacted and preserves verified snapshot states.");

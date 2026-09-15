@@ -1,0 +1,12 @@
+{
+  "environment": "production",
+  "generated_at": "2026-09-15T12:00:00Z",
+  "capabilities": {
+    "account_read": { "state": "verified", "http_status": 200, "code": null, "evidence_hash": "synthetic" },
+    "authentication": { "state": "verified", "http_status": 200, "code": null, "evidence_hash": "synthetic" },
+    "access_token": { "state": "verified", "http_status": 200, "code": null, "evidence_hash": "synthetic" },
+    "stock_snapshot": { "state": "verified", "http_status": 200, "code": null, "evidence_hash": "synthetic" },
+    "option_snapshot": { "state": "verified", "http_status": 200, "code": null, "evidence_hash": "synthetic" }
+  },
+  "private_account_id": "must-not-emit"
+}
