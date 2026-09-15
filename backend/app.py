@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
@@ -15,7 +16,8 @@ from backend.storage import Database
 def create_app(settings: Settings | None = None, frontend_dir: Path | None = None) -> FastAPI:
     configured = settings or Settings.from_env()
     database = Database(configured.database_path)
-    ui_root = (frontend_dir or Path(__file__).resolve().parents[1] / "frontend" / "dist").resolve()
+    configured_ui = os.environ.get("APP_FRONTEND_DIR")
+    ui_root = (frontend_dir if frontend_dir is not None else Path(configured_ui) if configured_ui else Path(__file__).resolve().parents[1] / "frontend" / "dist").resolve()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
