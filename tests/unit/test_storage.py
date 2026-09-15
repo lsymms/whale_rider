@@ -10,7 +10,7 @@ def test_migrations_are_idempotent_and_persist(tmp_path: Path) -> None:
     with database.connect() as connection:
         versions = [row[0] for row in connection.execute("SELECT version FROM schema_migrations")]
         tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
-    assert versions == ["001"]
+    assert versions == ["001", "002"]
+    assert {"alert_rules", "alert_rule_revisions", "notification_outbox"}.issubset(tables)
     assert {"settings", "capability_reports", "audit_events"} <= tables
     assert database.readiness()
-
