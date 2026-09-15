@@ -96,6 +96,8 @@ export interface ImportDraft { import_id: string; account_id: string; expected_p
 export interface SuggestionCandidate { id: string; action: string; snapshot_version: number; instrument_id?: string; side?: string; quantity?: string }
 export interface SuggestionsResponse { status: string; reason?: string; snapshot_version: number; candidates: SuggestionCandidate[] }
 export interface RuleDryRun { mode: "dry_run"; code: string; triggered: boolean; notional: string | null; enrichment_only: boolean }
+export interface ProbeCapability { state: "verified" | "unavailable" | "unknown"; code: string | null; httpStatus: number | null }
+export interface CapabilityProbeReport { source: "operator_probe" | "local_fallback"; capabilities: Record<string, ProbeCapability> }
 
 async function requestJson<T>(path: string, method: "GET" | "POST" | "PATCH", body?: object, fetcher: FetchLike = fetch, base = localApiBase()): Promise<T> {
   const response = await fetcher(`${base}${path}`, { method, credentials: "same-origin", headers: { Accept: "application/json", ...(body ? { "Content-Type": "application/json" } : {}) }, body: body ? JSON.stringify(body) : undefined });
@@ -115,4 +117,31 @@ export const localApi = {
   positions: (accountId: string) => requestJson<PositionSnapshot>(`/positions/${encodeURIComponent(accountId)}`, "GET"),
   exposure: (accountId: string) => requestJson<ExposureReport>(`/positions/${encodeURIComponent(accountId)}/exposure`, "GET"),
   suggestions: (accountId: string) => requestJson<SuggestionsResponse>("/suggestions", "POST", { account_id: accountId }),
+  probeCapabilities: (fetcher: FetchLike = fetch, base = localApiBase()) => probeCapabilities(fetcher, base),
 };
+
+function safeCapability(value: unknown): ProbeCapability {
+  if (!value || typeof value !== "object") return { state: "unknown", code: "UNREPORTED", httpStatus: null };
+  const record = value as Record<string, unknown>;
+  const state = record.state === "verified" || record.state === "unavailable" || record.state === "unknown" ? record.state : "unknown";
+  const code = typeof record.code === "string" && /^[A-Z0-9_]{1,80}$/.test(record.code) ? record.code : null;
+  const httpStatus = typeof record.http_status === "number" && Number.isInteger(record.http_status) && record.http_status >= 100 && record.http_status <= 599 ? record.http_status : null;
+  return { state, code, httpStatus };
+}
+
+export async function probeCapabilities(fetcher: FetchLike = fetch, base = localApiBase()): Promise<CapabilityProbeReport> {
+  let response: Response;
+  try {
+    response = await fetcher(`${base}/capabilities/probe`, { method: "POST", credentials: "same-origin", headers: { Accept: "application/json" } });
+  } catch {
+    throw new Error("Capability probe is unavailable.");
+  }
+  if (!response.ok) throw new Error(`Capability probe returned HTTP ${response.status}.`);
+  let body: unknown;
+  try { body = await response.json(); } catch { throw new Error("Capability probe returned invalid JSON."); }
+  if (!body || typeof body !== "object" || !("capabilities" in body) || !(body as { capabilities: unknown }).capabilities || typeof (body as { capabilities: unknown }).capabilities !== "object") throw new Error("Capability probe returned an invalid report.");
+  const raw = (body as { capabilities: Record<string, unknown> }).capabilities;
+  const capabilities: Record<string, ProbeCapability> = {};
+  for (const key of ["authentication", "account_read", "stock_snapshot", "option_snapshot"]) capabilities[key] = safeCapability(raw[key]);
+  return { source: (body as { source?: unknown }).source === "operator_probe" ? "operator_probe" : "local_fallback", capabilities };
+}

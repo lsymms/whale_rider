@@ -1,24 +1,312 @@
 import { useEffect, useState } from "react";
-import { loadLocalApiStatus, localApi, type ApiStatus, type ExposureReport, type ImportDraft, type PositionSnapshot, type SuggestionsResponse } from "./api";
+import {
+  loadLocalApiStatus,
+  localApi,
+  type ApiStatus,
+  type CapabilityProbeReport,
+  type ExposureReport,
+  type ImportDraft,
+  type PositionSnapshot,
+  type SuggestionsResponse,
+} from "./api";
+import { capabilityRows } from "./capabilityView";
 import { mockDashboard, type ConnectionStatus, type FlowEvent } from "./mock";
 
 type Page = "Overview" | "Alert rules" | "Positions" | "Suggestions" | "History" | "Settings";
 type Notice = { tone: "good" | "warn" | "bad"; text: string } | null;
+
 const pages: Page[] = ["Overview", "Alert rules", "Positions", "Suggestions", "History", "Settings"];
 const accountId = "demo";
 const errorText = (error: unknown) => error instanceof Error ? error.message : "The local API request failed.";
-function Badge({ children, tone = "neutral" }: { children: React.ReactNode; tone?: "neutral" | "good" | "warn" | "bad" }) { return <span className={`badge badge-${tone}`}>{children}</span>; }
-function HealthRow({ item }: { item: ConnectionStatus }) { const tone = item.state === "healthy" ? "good" : item.state === "degraded" ? "warn" : "bad"; return <div className="health-row"><div><strong>{item.name}</strong><span>{item.detail}</span></div><Badge tone={tone}>{item.state}</Badge></div>; }
-function FlowRow({ event, inspect }: { event: FlowEvent; inspect: () => void }) { return <article className="flow-row"><div className="event-avatar">{event.symbol[0]}</div><div className="flow-copy"><div className="flow-title"><strong>{event.symbol}</strong><Badge>{event.asset}</Badge><span>{event.instrument}</span></div><p>{event.quantity} <span>· {event.quality}</span></p><div className="flow-meta"><span>{event.id}</span><span>{event.observed}</span><Badge tone="good">{event.relevance}</Badge></div></div><div className="flow-action"><strong>{event.value}</strong><button onClick={inspect}>Review impact</button></div></article>; }
 
-function Overview({ setPage, live, connections }: { setPage: (page: Page) => void; live: boolean; connections: ConnectionStatus[] }) { const events = live ? [] : mockDashboard.events; return <><section className="page-heading"><div><p className="eyebrow">YOUR MARKET WORKSPACE</p><h1>See the trade.<br /><span>Understand the exposure.</span></h1><p className="lede">Reported executions, position context, and manual-review alternatives.</p></div><button className="primary" onClick={() => setPage("Alert rules")}>Review a rule</button></section><section className="metrics"><article><span>Monitored universe</span><strong>{live ? "—" : "20"} <small>stocks</small> / {live ? "—" : "6"} <small>options</small></strong><p>{live ? "Awaiting market adapter coverage" : "Mock coverage"}</p></article><article><span>Rule evaluation</span><strong>Dry run</strong><p>API simulation never sends Telegram</p></article><article><span>Position data</span><strong>{live ? "Local" : "Demo"}</strong><p>Review before commit</p></article></section><section className="dashboard-grid"><article className="card flow-card"><div className="card-header"><div><h2>Flow that matters</h2><p>Observed executions in your monitored universe</p></div><Badge tone={live ? "good" : "warn"}>{live ? "API READY" : "MOCK EVENTS"}</Badge></div><div className="flow-list">{events.length ? events.map((event) => <FlowRow key={event.id} event={event} inspect={() => setPage("Suggestions")} />) : <p className="empty-flow">Market-event history is not exposed by the local API yet.</p>}</div><footer>Large activity is not a trade instruction.</footer></article><aside className="right-rail"><article className="card exposure-card"><div className="card-header"><h2>Your exposure</h2><Badge>REVIEWED DATA ONLY</Badge></div><strong className="exposure-number">—<small>Load Positions for deterministic exposure</small></strong><button className="secondary" onClick={() => setPage("Positions")}>Review positions →</button></article><article className="card"><div className="card-header"><h2>Local status</h2></div>{connections.map((item) => <HealthRow key={item.name} item={item} />)}</article></aside></section></>; }
+function Badge({ children, tone = "neutral" }: { children: React.ReactNode; tone?: "neutral" | "good" | "warn" | "bad" }) {
+  return <span className={`badge badge-${tone}`}>{children}</span>;
+}
 
-function Rules({ record, setNotice }: { record: (text: string) => void; setNotice: (value: Notice) => void }) { const [running, setRunning] = useState(false); const [result, setResult] = useState<string | null>(null); async function dryRun() { setRunning(true); try { const outcome = await localApi.simulateRule({ rule: { rule_id: "browser-stock-large", template: "A01", asset_type: "stock", universe: ["NVDA"], minimum_quantity: "10000", minimum_notional: "1000000" }, event: { event_id: `browser-${Date.now()}`, instrument_id: "NVDA", underlying: "NVDA", asset_type: "stock", event_type: "execution", event_time: "2026-09-14T14:30:00Z", quantity: "10000", price: "100", identity_reliable: true } }); setResult(`${outcome.code} · ${outcome.notional ?? "notional unavailable"}`); record(`Rule dry run: ${outcome.code}`); setNotice({ tone: "good", text: "Dry run completed locally. No notification was sent." }); } catch (error) { setNotice({ tone: "bad", text: errorText(error) }); } finally { setRunning(false); } } return <section><div className="page-heading compact"><div><p className="eyebrow">RULE MANAGEMENT</p><h1>Alert rules</h1><p className="lede">The local API currently supports deterministic dry-run evaluation only.</p></div><Badge tone="warn">NO DELIVERY</Badge></div><article className="card padded-card"><h2>Large stock print</h2><p>NVDA execution · ≥10,000 shares and ≥$1,000,000 notional.</p><div className="action-row"><button className="primary" disabled={running} onClick={() => void dryRun()}>{running ? "Running…" : "Run dry simulation"}</button>{result && <Badge tone="good">{result}</Badge>}</div><p className="muted-copy">No rule is saved, and no Telegram message is sent.</p></article></section>; }
+function HealthRow({ item }: { item: ConnectionStatus }) {
+  const tone = item.state === "healthy" ? "good" : item.state === "degraded" ? "warn" : "bad";
+  return <div className="health-row"><div><strong>{item.name}</strong><span>{item.detail}</span></div><Badge tone={tone}>{item.state}</Badge></div>;
+}
 
-function Positions({ snapshot, exposure, setSnapshot, setExposure, record, setNotice }: { snapshot: PositionSnapshot | null; exposure: ExposureReport | null; setSnapshot: (value: PositionSnapshot) => void; setExposure: (value: ExposureReport) => void; record: (text: string) => void; setNotice: (value: Notice) => void }) { const [draft, setDraft] = useState<ImportDraft | null>(null); const [loading, setLoading] = useState(false); async function load() { setLoading(true); try { const [nextSnapshot, nextExposure] = await Promise.all([localApi.positions(accountId), localApi.exposure(accountId)]); setSnapshot(nextSnapshot); setExposure(nextExposure); setNotice({ tone: "good", text: `Loaded reviewed snapshot v${nextSnapshot.version}.` }); } catch { setNotice({ tone: "warn", text: "No committed demo snapshot exists yet. Create and review one below." }); } finally { setLoading(false); } } async function createReview() { try { const next = await localApi.createImport({ account_id: accountId, source: "ocr", expected_position_version: snapshot?.version ?? 0, rows: [{ instrument_id: "NVDA", underlying: "NVDA", asset_type: "stock", quantity: "100", underlying_price: "150", requires_review: ["quantity"] }] }); setDraft(next); record("Created a review-required position draft"); } catch (error) { setNotice({ tone: "bad", text: errorText(error) }); } } async function confirmReview() { if (!draft) return; try { setDraft(await localApi.updateImport(draft.import_id, { rows: [{ instrument_id: "NVDA", underlying: "NVDA", asset_type: "stock", quantity: "100", underlying_price: "150", requires_review: [] }] })); record("Confirmed position import quantity"); } catch (error) { setNotice({ tone: "bad", text: errorText(error) }); } } async function commit() { if (!draft) return; try { const next = await localApi.commitImport(draft.import_id); setSnapshot(next); setDraft(null); setExposure(await localApi.exposure(accountId)); record(`Committed snapshot v${next.version}`); setNotice({ tone: "good", text: "Reviewed snapshot committed. No brokerage account was changed." }); } catch (error) { setNotice({ tone: "bad", text: errorText(error) }); } } return <section><div className="page-heading compact"><div><p className="eyebrow">POSITION BOOK</p><h1>Positions</h1><p className="lede">Imports require review. Screenshot omissions remain unchanged.</p></div><button className="quiet" disabled={loading} onClick={() => void load()}>{loading ? "Loading…" : "Refresh snapshot"}</button></div><article className="card"><div className="table-scroll"><table><thead><tr><th>Instrument</th><th>Underlying</th><th>Asset</th><th>Quantity</th></tr></thead><tbody>{snapshot?.positions.map((position) => <tr key={position.instrument_id}><td><strong>{position.instrument_id}</strong></td><td>{position.underlying}</td><td>{position.asset_type}</td><td>{position.quantity}</td></tr>) ?? <tr><td colSpan={4}>No snapshot loaded.</td></tr>}</tbody></table></div></article>{exposure && <article className="card padded-card"><h2>Deterministic exposure · v{exposure.snapshot_version}</h2>{exposure.by_underlying.map((item) => <p key={item.underlying}><strong>{item.underlying}</strong> · net delta {item.known_delta_shares} · dollars {item.net_delta_dollars ?? "unavailable"} · <Badge tone={item.is_complete ? "good" : "warn"}>{item.is_complete ? "complete" : "partial"}</Badge></p>)}</article>}<article className="card padded-card"><h2>Import review</h2><p>Sample draft: NVDA 100 shares at illustrative $150 underlying price.</p>{!draft && <button className="primary" onClick={() => void createReview()}>Create review-required draft</button>}{draft?.status === "review_required" && <div className="review-actions"><Badge tone="warn">REVIEW REQUIRED</Badge><p>Confirm quantity before commit.</p><button className="primary" onClick={() => void confirmReview()}>Confirm sample quantity</button></div>}{draft?.status === "ready_for_commit" && <div className="review-actions"><Badge tone="good">READY TO COMMIT</Badge><p>Commit writes only the local position representation.</p><button className="primary" onClick={() => void commit()}>Commit reviewed snapshot</button></div>}</article></section>; }
+function FlowRow({ event, inspect }: { event: FlowEvent; inspect: () => void }) {
+  return (
+    <article className="flow-row">
+      <div className="event-avatar">{event.symbol[0]}</div>
+      <div className="flow-copy">
+        <div className="flow-title"><strong>{event.symbol}</strong><Badge>{event.asset}</Badge><span>{event.instrument}</span></div>
+        <p>{event.quantity} <span>- {event.quality}</span></p>
+        <div className="flow-meta"><span>{event.id}</span><span>{event.observed}</span><Badge tone="good">{event.relevance}</Badge></div>
+      </div>
+      <div className="flow-action"><strong>{event.value}</strong><button onClick={inspect}>Review impact</button></div>
+    </article>
+  );
+}
 
-function Suggestions({ snapshot, suggestions, setSuggestions, record, setNotice }: { snapshot: PositionSnapshot | null; suggestions: SuggestionsResponse | null; setSuggestions: (value: SuggestionsResponse) => void; record: (text: string) => void; setNotice: (value: Notice) => void }) { const [loading, setLoading] = useState(false); async function generate() { setLoading(true); try { const next = await localApi.suggestions(accountId); setSuggestions(next); record(`Loaded suggestion result: ${next.status}`); } catch (error) { setNotice({ tone: "warn", text: snapshot ? errorText(error) : "Commit a reviewed position snapshot first." }); } finally { setLoading(false); } } return <section><div className="page-heading compact"><div><p className="eyebrow">MANUAL REVIEW ONLY</p><h1>Suggestions</h1><p className="lede">Only deterministic candidates are shown. No trade submission is available.</p></div><button className="primary" disabled={loading} onClick={() => void generate()}>{loading ? "Loading…" : "Load candidates"}</button></div>{suggestions ? <article className="card padded-card"><Badge tone={suggestions.status === "deterministic_candidates" ? "good" : "warn"}>{suggestions.status}</Badge>{suggestions.reason && <p>{suggestions.reason}</p>}<div className="candidate-list">{suggestions.candidates.map((candidate) => <article key={candidate.id} className="candidate"><h2>{candidate.action}</h2><p>{candidate.instrument_id ? `${candidate.side} ${candidate.quantity} ${candidate.instrument_id}` : "No action; retain the reviewed position."}</p><small>Snapshot v{candidate.snapshot_version} · manual review required</small></article>)}</div></article> : <article className="card empty-state"><div className="empty-mark">◇</div><h2>Start with a reviewed position book</h2><p>Incomplete exposure returns an abstention instead of a sized idea.</p></article>}</section>; }
-function History({ items }: { items: string[] }) { return <section><div className="page-heading compact"><div><p className="eyebrow">LOCAL ACTIVITY</p><h1>History</h1><p className="lede">This browser session records API actions. A persisted history endpoint is not available yet.</p></div><Badge tone="warn">SESSION ONLY</Badge></div><article className="card padded-card"><ol className="history-list">{items.length ? items.map((item, index) => <li key={`${item}-${index}`}>{item}</li>) : <li>No browser actions recorded.</li>}</ol></article></section>; }
-function Settings() { return <section><div className="page-heading compact"><div><p className="eyebrow">LOCAL CONTROLS</p><h1>Settings & health</h1><p className="lede">The browser uses same-origin API calls and never receives broker or Telegram credentials.</p></div><Badge tone="good">LOOPBACK</Badge></div><article className="card padded-card"><h2>Manual trading policy</h2><p>Whale Rider does not submit, preview, cancel, or modify broker orders.</p></article></section>; }
+function Overview({ setPage, live, connections }: { setPage: (page: Page) => void; live: boolean; connections: ConnectionStatus[] }) {
+  const events = live ? [] : mockDashboard.events;
+  return (
+    <>
+      <section className="page-heading">
+        <div>
+          <p className="eyebrow">YOUR MARKET WORKSPACE</p>
+          <h1>See the trade.<br /><span>Understand the exposure.</span></h1>
+          <p className="lede">Reported executions, position context, and manual-review alternatives.</p>
+        </div>
+        <button className="primary" onClick={() => setPage("Alert rules")}>Review a rule</button>
+      </section>
+      <section className="metrics">
+        <article><span>Monitored universe</span><strong>{live ? "--" : "20"} <small>stocks</small> / {live ? "--" : "6"} <small>options</small></strong><p>{live ? "Awaiting market adapter coverage" : "Mock coverage"}</p></article>
+        <article><span>Rule evaluation</span><strong>Dry run</strong><p>API simulation never sends Telegram</p></article>
+        <article><span>Position data</span><strong>{live ? "Local" : "Demo"}</strong><p>Review before commit</p></article>
+      </section>
+      <section className="dashboard-grid">
+        <article className="card flow-card">
+          <div className="card-header"><div><h2>Flow that matters</h2><p>Observed executions in your monitored universe</p></div><Badge tone={live ? "good" : "warn"}>{live ? "API READY" : "MOCK EVENTS"}</Badge></div>
+          <div className="flow-list">{events.length ? events.map((event) => <FlowRow key={event.id} event={event} inspect={() => setPage("Suggestions")} />) : <p className="empty-flow">Market-event history is not exposed by the local API yet.</p>}</div>
+          <footer>Large activity is not a trade instruction.</footer>
+        </article>
+        <aside className="right-rail">
+          <article className="card exposure-card">
+            <div className="card-header"><h2>Your exposure</h2><Badge>REVIEWED DATA ONLY</Badge></div>
+            <strong className="exposure-number">--<small>Load Positions for deterministic exposure</small></strong>
+            <button className="secondary" onClick={() => setPage("Positions")}>Review positions -&gt;</button>
+          </article>
+          <article className="card"><div className="card-header"><h2>Local status</h2></div>{connections.map((item) => <HealthRow key={item.name} item={item} />)}</article>
+        </aside>
+      </section>
+    </>
+  );
+}
 
-export function App() { const [page, setPage] = useState<Page>("Overview"); const [api, setApi] = useState<ApiStatus | null>(null); const [snapshot, setSnapshot] = useState<PositionSnapshot | null>(null); const [exposure, setExposure] = useState<ExposureReport | null>(null); const [suggestions, setSuggestions] = useState<SuggestionsResponse | null>(null); const [history, setHistory] = useState<string[]>([]); const [notice, setNotice] = useState<Notice>(null); useEffect(() => { void loadLocalApiStatus().then(setApi); }, []); const live = api?.mode === "live"; const connections = live ? api.connections : api?.mode === "fallback" ? mockDashboard.connections : [{ name: "Local service", detail: "Connecting to loopback API", state: "degraded" as const }]; const mode = live ? "LOCAL API CONNECTED" : api?.mode === "fallback" ? "MOCK FALLBACK" : "CONNECTING"; const record = (text: string) => setHistory((items) => [`${new Date().toLocaleTimeString()} · ${text}`, ...items]); const view = page === "Overview" ? <Overview setPage={setPage} live={live} connections={connections} /> : page === "Alert rules" ? <Rules record={record} setNotice={setNotice} /> : page === "Positions" ? <Positions snapshot={snapshot} exposure={exposure} setSnapshot={setSnapshot} setExposure={setExposure} record={record} setNotice={setNotice} /> : page === "Suggestions" ? <Suggestions snapshot={snapshot} suggestions={suggestions} setSuggestions={setSuggestions} record={record} setNotice={setNotice} /> : page === "History" ? <History items={history} /> : <Settings />; return <div className="app-shell"><aside className="sidebar"><a className="brand" href="#overview" onClick={(event) => { event.preventDefault(); setPage("Overview"); }}><span className="brand-mark">W</span><span>Whale Rider<small>FLOW &amp; EXPOSURE</small></span></a><p className="nav-label">WORKSPACE</p><nav aria-label="Primary navigation">{pages.map((item) => <button key={item} className={page === item ? "nav-item active" : "nav-item"} aria-current={page === item ? "page" : undefined} onClick={() => setPage(item)}>{item}</button>)}</nav><div className="sidebar-footer"><span className="status-dot" /> {mode}<p>{live ? "Same-origin local API" : api?.mode === "fallback" ? api.reason : "Checking local service"}</p></div></aside><div className="content"><header className="topbar"><div><span className="account-mark">P</span> Personal workspace <span className="subtle-text">/ {accountId}</span></div><div><Badge tone={live ? "good" : "warn"}>{mode}</Badge><span className="clock">{new Date().toLocaleTimeString()}</span></div></header><main>{notice && <div className={`banner banner-${notice.tone}`} role="status">{notice.text}<button onClick={() => setNotice(null)} aria-label="Dismiss message">×</button></div>}{view}</main><footer className="app-footer">WHALE RIDER <span>Local MVP · manual trading only</span></footer></div></div>; }
+function Rules({ record, setNotice }: { record: (text: string) => void; setNotice: (value: Notice) => void }) {
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+
+  async function dryRun() {
+    setRunning(true);
+    try {
+      const outcome = await localApi.simulateRule({
+        rule: { rule_id: "browser-stock-large", template: "A01", asset_type: "stock", universe: ["NVDA"], minimum_quantity: "10000", minimum_notional: "1000000" },
+        event: { event_id: `browser-${Date.now()}`, instrument_id: "NVDA", underlying: "NVDA", asset_type: "stock", event_type: "execution", event_time: "2026-09-14T14:30:00Z", quantity: "10000", price: "100", identity_reliable: true },
+      });
+      setResult(`${outcome.code} - ${outcome.notional ?? "notional unavailable"}`);
+      record(`Rule dry run: ${outcome.code}`);
+      setNotice({ tone: "good", text: "Dry run completed locally. No notification was sent." });
+    } catch (error) {
+      setNotice({ tone: "bad", text: errorText(error) });
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  return (
+    <section>
+      <div className="page-heading compact"><div><p className="eyebrow">RULE MANAGEMENT</p><h1>Alert rules</h1><p className="lede">The local API currently supports deterministic dry-run evaluation only.</p></div><Badge tone="warn">NO DELIVERY</Badge></div>
+      <article className="card padded-card">
+        <h2>Large stock print</h2>
+        <p>NVDA execution - &gt;=10,000 shares and &gt;=$1,000,000 notional.</p>
+        <div className="action-row"><button className="primary" disabled={running} onClick={() => void dryRun()}>{running ? "Running..." : "Run dry simulation"}</button>{result && <Badge tone="good">{result}</Badge>}</div>
+        <p className="muted-copy">No rule is saved, and no Telegram message is sent.</p>
+      </article>
+    </section>
+  );
+}
+
+function Positions({
+  snapshot,
+  exposure,
+  setSnapshot,
+  setExposure,
+  record,
+  setNotice,
+}: {
+  snapshot: PositionSnapshot | null;
+  exposure: ExposureReport | null;
+  setSnapshot: (value: PositionSnapshot) => void;
+  setExposure: (value: ExposureReport) => void;
+  record: (text: string) => void;
+  setNotice: (value: Notice) => void;
+}) {
+  const [draft, setDraft] = useState<ImportDraft | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const [nextSnapshot, nextExposure] = await Promise.all([localApi.positions(accountId), localApi.exposure(accountId)]);
+      setSnapshot(nextSnapshot);
+      setExposure(nextExposure);
+      setNotice({ tone: "good", text: `Loaded reviewed snapshot v${nextSnapshot.version}.` });
+    } catch {
+      setNotice({ tone: "warn", text: "No committed demo snapshot exists yet. Create and review one below." });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function createReview() {
+    try {
+      const next = await localApi.createImport({
+        account_id: accountId,
+        source: "ocr",
+        expected_position_version: snapshot?.version ?? 0,
+        rows: [{ instrument_id: "NVDA", underlying: "NVDA", asset_type: "stock", quantity: "100", underlying_price: "150", requires_review: ["quantity"] }],
+      });
+      setDraft(next);
+      record("Created a review-required position draft");
+    } catch (error) {
+      setNotice({ tone: "bad", text: errorText(error) });
+    }
+  }
+
+  async function confirmReview() {
+    if (!draft) return;
+    try {
+      setDraft(await localApi.updateImport(draft.import_id, { rows: [{ instrument_id: "NVDA", underlying: "NVDA", asset_type: "stock", quantity: "100", underlying_price: "150", requires_review: [] }] }));
+      record("Confirmed position import quantity");
+    } catch (error) {
+      setNotice({ tone: "bad", text: errorText(error) });
+    }
+  }
+
+  async function commit() {
+    if (!draft) return;
+    try {
+      const next = await localApi.commitImport(draft.import_id);
+      setSnapshot(next);
+      setDraft(null);
+      setExposure(await localApi.exposure(accountId));
+      record(`Committed snapshot v${next.version}`);
+      setNotice({ tone: "good", text: "Reviewed snapshot committed. No brokerage account was changed." });
+    } catch (error) {
+      setNotice({ tone: "bad", text: errorText(error) });
+    }
+  }
+
+  return (
+    <section>
+      <div className="page-heading compact"><div><p className="eyebrow">POSITION BOOK</p><h1>Positions</h1><p className="lede">Imports require review. Screenshot omissions remain unchanged.</p></div><button className="quiet" disabled={loading} onClick={() => void load()}>{loading ? "Loading..." : "Refresh snapshot"}</button></div>
+      <article className="card"><div className="table-scroll"><table><thead><tr><th>Instrument</th><th>Underlying</th><th>Asset</th><th>Quantity</th></tr></thead><tbody>{snapshot?.positions.map((position) => <tr key={position.instrument_id}><td><strong>{position.instrument_id}</strong></td><td>{position.underlying}</td><td>{position.asset_type}</td><td>{position.quantity}</td></tr>) ?? <tr><td colSpan={4}>No snapshot loaded.</td></tr>}</tbody></table></div></article>
+      {exposure && <article className="card padded-card"><h2>Deterministic exposure - v{exposure.snapshot_version}</h2>{exposure.by_underlying.map((item) => <p key={item.underlying}><strong>{item.underlying}</strong> - net delta {item.known_delta_shares} - dollars {item.net_delta_dollars ?? "unavailable"} - <Badge tone={item.is_complete ? "good" : "warn"}>{item.is_complete ? "complete" : "partial"}</Badge></p>)}</article>}
+      <article className="card padded-card">
+        <h2>Import review</h2>
+        <p>Sample draft: NVDA 100 shares at illustrative $150 underlying price.</p>
+        {!draft && <button className="primary" onClick={() => void createReview()}>Create review-required draft</button>}
+        {draft?.status === "review_required" && <div className="review-actions"><Badge tone="warn">REVIEW REQUIRED</Badge><p>Confirm quantity before commit.</p><button className="primary" onClick={() => void confirmReview()}>Confirm sample quantity</button></div>}
+        {draft?.status === "ready_for_commit" && <div className="review-actions"><Badge tone="good">READY TO COMMIT</Badge><p>Commit writes only the local position representation.</p><button className="primary" onClick={() => void commit()}>Commit reviewed snapshot</button></div>}
+      </article>
+    </section>
+  );
+}
+
+function Suggestions({
+  snapshot,
+  suggestions,
+  setSuggestions,
+  record,
+  setNotice,
+}: {
+  snapshot: PositionSnapshot | null;
+  suggestions: SuggestionsResponse | null;
+  setSuggestions: (value: SuggestionsResponse) => void;
+  record: (text: string) => void;
+  setNotice: (value: Notice) => void;
+}) {
+  const [loading, setLoading] = useState(false);
+
+  async function generate() {
+    setLoading(true);
+    try {
+      const next = await localApi.suggestions(accountId);
+      setSuggestions(next);
+      record(`Loaded suggestion result: ${next.status}`);
+    } catch (error) {
+      setNotice({ tone: "warn", text: snapshot ? errorText(error) : "Commit a reviewed position snapshot first." });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <section>
+      <div className="page-heading compact"><div><p className="eyebrow">MANUAL REVIEW ONLY</p><h1>Suggestions</h1><p className="lede">Only deterministic candidates are shown. No trade submission is available.</p></div><button className="primary" disabled={loading} onClick={() => void generate()}>{loading ? "Loading..." : "Load candidates"}</button></div>
+      {suggestions ? (
+        <article className="card padded-card">
+          <Badge tone={suggestions.status === "deterministic_candidates" ? "good" : "warn"}>{suggestions.status}</Badge>
+          {suggestions.reason && <p>{suggestions.reason}</p>}
+          <div className="candidate-list">{suggestions.candidates.map((candidate) => <article key={candidate.id} className="candidate"><h2>{candidate.action}</h2><p>{candidate.instrument_id ? `${candidate.side} ${candidate.quantity} ${candidate.instrument_id}` : "No action; retain the reviewed position."}</p><small>Snapshot v{candidate.snapshot_version} - manual review required</small></article>)}</div>
+        </article>
+      ) : (
+        <article className="card empty-state"><div className="empty-mark">&lt;&gt;</div><h2>Start with a reviewed position book</h2><p>Incomplete exposure returns an abstention instead of a sized idea.</p></article>
+      )}
+    </section>
+  );
+}
+
+function History({ items }: { items: string[] }) {
+  return <section><div className="page-heading compact"><div><p className="eyebrow">LOCAL ACTIVITY</p><h1>History</h1><p className="lede">This browser session records API actions. A persisted history endpoint is not available yet.</p></div><Badge tone="warn">SESSION ONLY</Badge></div><article className="card padded-card"><ol className="history-list">{items.length ? items.map((item, index) => <li key={`${item}-${index}`}>{item}</li>) : <li>No browser actions recorded.</li>}</ol></article></section>;
+}
+
+function Settings() {
+  const [running, setRunning] = useState(false);
+  const [probe, setProbe] = useState<CapabilityProbeReport | null>(null);
+  const [message, setMessage] = useState<Notice>(null);
+
+  async function runProbe() {
+    setRunning(true);
+    try {
+      setProbe(await localApi.probeCapabilities());
+      setMessage({ tone: "good", text: "Capability probe completed. Only redacted states and codes are shown." });
+    } catch (error) {
+      setMessage({ tone: "bad", text: errorText(error) });
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  return (
+    <section>
+      <div className="page-heading compact"><div><p className="eyebrow">LOCAL CONTROLS</p><h1>Settings &amp; health</h1><p className="lede">Run a read-only capability check for fresh Webull stock, option, and account access states.</p></div><button className="primary" disabled={running} onClick={() => void runProbe()}>{running ? "Probing" : "Run capability probe"}</button></div>
+      {message && <div className={`banner banner-${message.tone}`} role="status">{message.text}</div>}
+      <article className="card">
+        <div className="card-header"><div><h2>Webull access</h2><p>Operator-triggered and read-only. Secrets, account values, and raw provider errors are never displayed.</p></div><Badge tone={probe?.source === "operator_probe" ? "good" : "warn"}>{probe?.source === "operator_probe" ? "PROBED" : "NOT PROBED"}</Badge></div>
+        {capabilityRows(probe).map((row) => <div className="health-row" key={row.label}><div><strong>{row.label}</strong><span>{row.detail}</span></div><Badge tone={row.state === "verified" ? "good" : row.state === "unavailable" ? "bad" : "warn"}>{row.state}</Badge></div>)}
+      </article>
+      <article className="card padded-card"><h2>Manual trading policy</h2><p>Whale Rider does not submit, preview, cancel, or modify broker orders.</p></article>
+    </section>
+  );
+}
+
+export function App() {
+  const [page, setPage] = useState<Page>("Overview");
+  const [api, setApi] = useState<ApiStatus | null>(null);
+  const [snapshot, setSnapshot] = useState<PositionSnapshot | null>(null);
+  const [exposure, setExposure] = useState<ExposureReport | null>(null);
+  const [suggestions, setSuggestions] = useState<SuggestionsResponse | null>(null);
+  const [history, setHistory] = useState<string[]>([]);
+  const [notice, setNotice] = useState<Notice>(null);
+
+  useEffect(() => { void loadLocalApiStatus().then(setApi); }, []);
+
+  const live = api?.mode === "live";
+  const connections = live ? api.connections : api?.mode === "fallback" ? mockDashboard.connections : [{ name: "Local service", detail: "Connecting to loopback API", state: "degraded" as const }];
+  const mode = live ? "LOCAL API CONNECTED" : api?.mode === "fallback" ? "MOCK FALLBACK" : "CONNECTING";
+  const record = (text: string) => setHistory((items) => [`${new Date().toLocaleTimeString()} - ${text}`, ...items]);
+  const view = page === "Overview" ? <Overview setPage={setPage} live={live} connections={connections} /> : page === "Alert rules" ? <Rules record={record} setNotice={setNotice} /> : page === "Positions" ? <Positions snapshot={snapshot} exposure={exposure} setSnapshot={setSnapshot} setExposure={setExposure} record={record} setNotice={setNotice} /> : page === "Suggestions" ? <Suggestions snapshot={snapshot} suggestions={suggestions} setSuggestions={setSuggestions} record={record} setNotice={setNotice} /> : page === "History" ? <History items={history} /> : <Settings />;
+
+  return (
+    <div className="app-shell">
+      <aside className="sidebar">
+        <a className="brand" href="#overview" onClick={(event) => { event.preventDefault(); setPage("Overview"); }}><span className="brand-mark">W</span><span>Whale Rider<small>FLOW &amp; EXPOSURE</small></span></a>
+        <p className="nav-label">WORKSPACE</p>
+        <nav aria-label="Primary navigation">{pages.map((item) => <button key={item} className={page === item ? "nav-item active" : "nav-item"} aria-current={page === item ? "page" : undefined} onClick={() => setPage(item)}>{item}</button>)}</nav>
+        <div className="sidebar-footer"><span className="status-dot" /> {mode}<p>{live ? "Same-origin local API" : api?.mode === "fallback" ? api.reason : "Checking local service"}</p></div>
+      </aside>
+      <div className="content">
+        <header className="topbar"><div><span className="account-mark">P</span> Personal workspace <span className="subtle-text">/ {accountId}</span></div><div><Badge tone={live ? "good" : "warn"}>{mode}</Badge><span className="clock">{new Date().toLocaleTimeString()}</span></div></header>
+        <main>{notice && <div className={`banner banner-${notice.tone}`} role="status">{notice.text}<button onClick={() => setNotice(null)} aria-label="Dismiss message">x</button></div>}{view}</main>
+        <footer className="app-footer">WHALE RIDER <span>Local MVP - manual trading only</span></footer>
+      </div>
+    </div>
+  );
+}
